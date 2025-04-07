@@ -1,3 +1,4 @@
+console.log(floor);
 (function(undefined) {
 
 var imageCount=0;
@@ -246,6 +247,13 @@ var monsterMap={
         A1: loadImage("monsters/BA/A1/map.png",16,9,true),
         NU: loadImage("monsters/BA/NU/map.png",16,8,true),
         WL: loadImage("monsters/BA/WL/map.png",16,8,true),
+    },
+    SB: {
+        A1: loadImage("monsters/SB/A1/map.png", 16, 12, true),
+        NU: loadImage("monsters/SB/NU/map.png", 16, 8, true),
+        WL: loadImage("monsters/SB/WL/map.png", 16, 10, true),
+        DD: loadImage("monsters/SB/DD/map.png", 16, 1),
+        attackOffset: 30,
     }
 };
 
@@ -261,6 +269,7 @@ for(var i=0;i<2;i++) monsters.push(new AgressiveMob(randomx(),randomy(), 'FS'));
 for(var i=0;i<2;i++) monsters.push(new AgressiveMob(randomx(),randomy(), 'SI'));
 //for(var i=0;i<2;i++) barrels.push(new Barrel(randomx(),randomy()));
 for(var i=0;i<2;i++) potions.push(new PotionHealth(randomx(), randomy()));
+monsters.push(new SuperBoss(s * 5, s * 3)); // ajout du SuperBoss
 
 for(var y in level.wall.map){
     for(var x in level.wall.map[y]){
@@ -340,7 +349,7 @@ setInterval(function() {
     renderHeroHealth()
     renderHeroBelt();
     if(showMap) renderMap();
-}, 66);
+}, 200);
 
 function renderHeroHealth(){
     var radius=80, padding=20;
@@ -738,6 +747,67 @@ function HeroBarbarian(x,y){
     this.getDamage=function(){
         return this.currentDamage * ( Math.random() <= this.criticalDamage ? 4 : 1 );
     }
+}
+
+function SuperBoss(x, y) {
+    AgressiveMob.call(this, x, y, "SB"); // utilise les sprites "SB"
+    this.name = "SB"
+    this.sprite = monsterMap["SB"].A1;
+    
+    // stats améliorées
+    this.origin_health = this.health = 5000; // pv x5
+    this.currentDamage = 100; // dégâts de base
+    this.attackOffset = 30; // décale l'affichage de l’attaque visuellement
+    this.resistance = 50; // réduit les dégâts reçus de 50%
+    this.st = 3; // vitesse de déplacement
+    this.offset_x = -20;  // décalage horizontal
+    this.offset_y = 50 // décalage verticaux
+
+    // attaques spéciales
+    this.specialAttacks = ["Rayon Infernal", "Invocation de Sbires", "Frappe Écrasante"];
+    this.lastSpecialAttackTime = 0;
+
+    const originalNextStep = this.nextStep;
+    this.nextStep = function() {
+        if (this.currentState === this.attack) return; // ne pas bouger pendant l'attaque
+        originalNextStep.call(this);
+    };
+
+    // surcharge de la méthode doAttack pour gérer les attaques spéciales
+    const originalDoAttack = this.doAttack;
+    this.doAttack = function(mob) {
+        const now = Date.now();
+        if (now - this.lastSpecialAttackTime > 10000) { // toutes les 10 secondes
+            this.executeSpecialAttack();
+            this.lastSpecialAttackTime = now;
+        } else {
+            originalDoAttack.call(this, mob); // attaque normale
+        }
+    };
+
+    // exécute une attaque spéciale aléatoire
+    this.executeSpecialAttack = function() {
+        const attack = this.specialAttacks[Math.floor(Math.random() * this.specialAttacks.length)];
+        console.log(`${this.name} utilise ${attack} !`);
+        
+        switch (attack) {
+            case "Rayon Infernal":
+                // inflige des dégâts en zone
+                hero.damage(this.currentDamage * 2);
+                break;
+            case "Invocation de Sbires":
+                // ajoute 2 monstres normaux pour aider le boss
+                monsters.push(new AgressiveMob(this.x + 100, this.y + 100, "SK"));
+                monsters.push(new AgressiveMob(this.x - 100, this.y - 100, "FS"));
+                break;
+            case "Frappe Écrasante":
+                // dégâts massifs mais lente
+                setTimeout(() => {
+                    if (this.health > 0) hero.damage(this.currentDamage * 3);
+                }, 1000);
+                break;
+        }
+    };
 }
 
 })();
